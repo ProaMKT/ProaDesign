@@ -139,7 +139,7 @@ const defaultEquipamiento = [
 export function PrintForgeForm() {
   const { toast } = useToast();
   const [isDownloadLoading, startDownloadTransition] = useTransition();
-  const [isPreviewLoading, startPreviewTransition] = useTransition();
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   
   const form = useForm<VehicleFormValues>({
@@ -258,21 +258,21 @@ export function PrintForgeForm() {
 
   const handleRefreshPreview = async () => {
     const data = form.getValues();
-    startPreviewTransition(async () => {
-      if (previewPdfUrl) {
-        URL.revokeObjectURL(previewPdfUrl);
-        setPreviewPdfUrl(null);
-      }
-      toast({
-        title: "Actualizando previsualización...",
-        description: "Generando nueva vista previa.",
+    setIsPreviewLoading(true);
+    if (previewPdfUrl) {
+      URL.revokeObjectURL(previewPdfUrl);
+      setPreviewPdfUrl(null);
+    }
+    toast({
+      title: "Actualizando previsualización...",
+      description: "Generando nueva vista previa.",
+    });
+    try {
+      const response = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
       });
-      try {
-        const response = await fetch('/api/generate-pdf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
 
         if (!response.ok) {
           let apiErrorMsg = `Error del servidor: ${response.status}`;
@@ -296,16 +296,17 @@ export function PrintForgeForm() {
           title: "¡Previsualización Actualizada!",
           description: "La vista previa se ha cargado.",
         });
-      } catch (error: any) {
-        console.error("Error al refrescar previsualización:", error);
-        setPreviewPdfUrl(null); 
-        toast({
-          title: "Error al Actualizar Previsualización",
-          description: error.message || "No se pudo generar la previsualización. Por favor, inténtalo de nuevo.",
-          variant: "destructive",
-        });
-      }
-    });
+    } catch (error: any) {
+      console.error("Error al refrescar previsualización:", error);
+      setPreviewPdfUrl(null);
+      toast({
+        title: "Error al Actualizar Previsualización",
+        description: error.message || "No se pudo generar la previsualización. Por favor, inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPreviewLoading(false);
+    }
   };
   
   const isLoading = isPreviewLoading || isDownloadLoading;
